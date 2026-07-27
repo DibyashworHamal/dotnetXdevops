@@ -1,10 +1,15 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# copy ONLY the .csproj files first. Why? Because dependencies rarely change. This makes future builds 10x faster!
-COPY ["src/Web/Web.csproj", "src/Web/"]
-COPY ["src/ApplicationCore/ApplicationCore.csproj", "src/ApplicationCore/"]
-COPY ["src/Infrastructure/Infrastructure.csproj", "src/Infrastructure/"]
+# Copy the Central Package Management file (Required for eShopOnWeb)
+COPY ["Directory.Packages.props", "./"]
+
+# Copy ALL project files needed by the Web project
+COPY ["src/Web/Web.csproj", "src/Web/"] \
+      ["src/ApplicationCore/ApplicationCore.csproj", "src/ApplicationCore/"] \
+      ["src/Infrastructure/Infrastructure.csproj", "src/Infrastructure/"] \
+      ["src/BlazorAdmin/BlazorAdmin.csproj", "src/BlazorAdmin/"] \
+      ["src/BlazorShared/BlazorShared.csproj", "src/BlazorShared/"]
 
 # Download all dependencies
 RUN dotnet restore "src/Web/Web.csproj"
@@ -21,7 +26,6 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
 EXPOSE 8080
-
 USER app
 
 # Copy only the compiled output from the Build Stage (leaving the heavy source code behind)
