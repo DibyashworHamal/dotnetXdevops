@@ -9,6 +9,12 @@ services:
       - MSSQL_SA_PASSWORD=${DB_PASSWORD}
     ports:
       - "${DB_HOST_PORT}:1433"
+    healthcheck:
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${DB_PASSWORD}", "-C", "-Q", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
   web:
     build:
       context: .
@@ -17,7 +23,8 @@ services:
     ports:
       - "${WEB_HOST_PORT}:8080" 
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=${DOTNET_ENV}
       - ConnectionStrings__CatalogConnection=Server=db;Database=CatalogDb;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=True;
@@ -30,7 +37,8 @@ services:
     ports:
       - "${API_HOST_PORT}:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
       - ASPNETCORE_ENVIRONMENT=${DOTNET_ENV}
       # The API also needs to talk to the database!
