@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: eshop-db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "${DB_HOST_PORT}:1433"
+  web:
+    build:
+      context: .
+      dockerfile: src/Web/Dockerfile
+    container_name: eshop-web
+    ports:
+      - "${WEB_HOST_PORT}:8080" 
+    depends_on:
+      - db
+    environment:
+      - ASPNETCORE_ENVIRONMENT=${DOTNET_ENV}
+      - ConnectionStrings__CatalogConnection=Server=db;Database=CatalogDb;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=True;
+      - ConnectionStrings__IdentityConnection=Server=db;Database=IdentityDb;User Id=sa;Password=${DB_PASSWORD};TrustServerCertificate=True;
