@@ -1,0 +1,44 @@
+pipeline {
+    agent {
+        docker { 
+            image 'mcr.microsoft.com/dotnet/sdk:8.0'
+            args '-u root'
+        }
+    }
+
+    stages {
+        stage('Restore') {
+            steps {
+                sh 'dotnet restore eShopOnWeb.sln'
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh 'dotnet build eShopOnWeb.sln -c Release --no-restore'
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                sh 'dotnet test eShopOnWeb.sln -c Release --no-build'
+            }
+        }
+        
+        stage('Publish (Package)') {
+            steps {
+                // Compiles the final production code into two separate folders
+                sh 'dotnet publish src/Web/Web.csproj -c Release -o ./publish/web /p:UseAppHost=false'
+                sh 'dotnet publish src/PublicApi/PublicApi.csproj -c Release -o ./publish/api /p:UseAppHost=false'
+            }
+        }
+    }
+    
+    post {
+        success {
+            archiveArtifacts artifacts: 'publish/**', allowEmptyArchive: false
+            
+            build job: 'dotnet-Deploy-Pipeline', wait: false
+        }
+    }
+}
