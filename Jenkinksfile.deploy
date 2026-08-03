@@ -1,0 +1,61 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_CREDS = credentials('docker-cred')
+        DOCKER_USER = "diphamal"
+        IMAGE_TAG = "${env.BUILD_NUMBER}"
+    }
+
+    stages {
+        stage('Download Artifacts') {
+            steps {
+                cleanWs()
+                checkout scm
+                copyArtifacts projectName: 'dotnet-Build-Pipeline', filter: 'publish/**', target: '.'
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                echo 'Building Web Image...'
+                sh "docker build -t ${DOCKER_USER}/eshop-web:${IMAGE_TAG} -t ${DOCKER_USER}/eshop-web:latest -f src/Web/Dockerfile.prod ./publish/web"
+                
+                echo 'Building API Image...'
+                sh "docker build -t ${DOCKER_USER}/eshop-api:${IMAGE_TAG} -t ${DOCKER_USER}/eshop-api:latest -f src/PublicApi/Dockerfile.prod ./publish/api"
+            }
+        }
+
+        stage('Push to Docker Registry') {
+            steps {
+                sh "echo ${DOCKERHUB_CREDS_PSW} | docker login -u ${DOCKERHUB_CREDS_USR} --password-stdin"
+                sh "docker push ${DOCKER_USER}/eshop-web --all-tags"
+                sh "docker push ${DOCKER_USER}/eshop-api --all-tags"
+            }
+        }
+
+        stage('Manual Approval') {
+            steps {
+                timeout(time: 1, unit: 'HOURS') {
+                    input message: 'Approve PRODUCTION Deployment?'
+            }
+        }
+
+        stage('Deploy (Docker Compose)') {
+            steps {
+                // 1. Inject the secret .env file safely into the workspace
+                withCredentials([file(credentialsId: 'dotenv-file', variable: 'SECRET_ENV')]) {
+                    sh 'cp $SECRET_ENV .env'
+                    
+                    // 2. Ensure docker-compose uses your newly pushed images
+                    sh "export WEB_IMAGE=${DOCKER_USER}/eshop-web:latest"
+                    sh "export API_IMAGE=${DOCKER_USER}/eshop-api:latest"
+                    
+                    // 3. Deploy!
+                    sh 'docker compose down'
+                    sh 'docker compose up -d'
+                }
+            }
+        }
+    }
+}
