@@ -1,0 +1,23 @@
+name: Simple GitHub Action
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  hello:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Print Hello
+        run: echo "Hello, GitHub Actions!"
+
+      - name: Show current directory
+        run: pwd
+
+      - name: List files
+        run: ls -la
